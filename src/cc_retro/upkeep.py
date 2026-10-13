@@ -42,7 +42,7 @@ def default_roots() -> tuple[Path, ...]:
         top = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True, timeout=5).stdout.strip()
     except (OSError, subprocess.SubprocessError):
         top = ""
-    here = Path(top) if top else Path.cwd()
+    here = Path(top) if top else Path(os.getcwd())  # not Path.cwd(): on 3.10 it binds getcwd at import, so tests can't patch it
     if here != Path.home() and here not in roots:
         roots.append(here)
     return tuple(roots)
