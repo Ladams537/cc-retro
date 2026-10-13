@@ -92,14 +92,19 @@ def idle_resume(event: dict, now: float | None = None) -> dict | None:
     _log({"event": "hold", "ts": now, "session": sid, "transcript": path, "ctx": last["ctx"],
           "idle_h": round(idle / 3600, 2), "cost": round(cost, 4)})
     hours = idle / 3600
+    try:
+        from .handoff import write as write_handoff
+        note = f"- Fresh start, same task: open a new session and send `Read {write_handoff(Path(path))} and continue from it.`\n"
+    except Exception:  # the note is a convenience; the hold must still work without it
+        note = ""
     prompt = str(event.get("prompt", ""))
     preview = prompt if len(prompt) <= 600 else prompt[:600] + "…"
     reason = (
         f"cc-retro: held this prompt. The session's {last['ctx'] / 1000:.0f}k-token context has been idle "
         f"{hours:.1f}h and its cache has expired, so continuing re-caches all of it (≈${cost:.2f} extra).\n"
         f"- Same task: send it again within {HOLD_WINDOW // 60} min to go ahead (or /compact first to shrink it).\n"
-        f"- New task: start a new session, or /clear.\n"
-        f"- Next time: before a break, ask for a short handoff note while the cache is warm, then start fresh with it.\n\n"
+        + note +
+        f"- New task: start a new session, or /clear.\n\n"
         f"Your prompt, to copy back:\n{preview}"
     )
     return {"decision": "block", "reason": reason}

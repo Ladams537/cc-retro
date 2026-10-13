@@ -12,7 +12,7 @@ import webbrowser
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import analyze, classify, context, costs, hooks, report, split, upkeep
+from . import analyze, classify, context, costs, handoff, hooks, report, split, upkeep, workflows
 from .parse import DEFAULT_ROOT, load_all
 
 
@@ -145,6 +145,25 @@ def cmd_split(args) -> None:
     print(split.report(sessions, labels, args.idle_hours, args.handoff))
 
 
+def cmd_handoff(args) -> None:
+    root = Path(args.root).expanduser()
+    t = handoff.find_transcript(args.session, root) if args.session else handoff.latest_transcript(root, args.project)
+    if not t:
+        sys.exit("No matching session" + (f" for '{args.session}' (give more of the id?)" if args.session else ""))
+    path = handoff.write(t)
+    if args.print:
+        print(path.read_text())
+    print(f"Handoff written to {str(path).replace(str(Path.home()), '~')}\n"
+          f"Start a new session and send: Read {path} and continue from it.")
+
+
+def cmd_workflows(args) -> None:
+    wfs = workflows.group(workflows.load(Path(args.root).expanduser()), args.gap)
+    if args.project:
+        wfs = [w for w in wfs if args.project.lower() in w.repo.lower()]
+    print(workflows.export(wfs) if args.json else workflows.summary(wfs))
+
+
 def cmd_upkeep(args) -> None:
     root = Path(args.root).expanduser()
     if args.roots:
@@ -204,6 +223,18 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--idle-hours", type=float, default=1.0, help="a gap this long before a prompt is a boundary")
     sp.add_argument("--handoff", type=int, default=split.HANDOFF_TOKENS, help="tokens a fresh session needs to pick up")
     sp.set_defaults(fn=cmd_split)
+    ho = sub.add_parser("handoff", help="write a handoff note for continuing a session in a fresh one (no model call)")
+    ho.add_argument("--root", default=str(DEFAULT_ROOT), help="transcripts dir (default ~/.claude/projects)")
+    ho.add_argument("--session", help="session id or prefix (default: the most recently active session)")
+    ho.add_argument("--project", help="with no --session: the latest session whose project path contains this")
+    ho.add_argument("--print", action="store_true", help="also print the note")
+    ho.set_defaults(fn=cmd_handoff)
+    wf = sub.add_parser("workflows", help="group sessions into workflows and compare coordination modes")
+    wf.add_argument("--root", default=str(DEFAULT_ROOT), help="transcripts dir (default ~/.claude/projects)")
+    wf.add_argument("--project", help="substring filter on repo path")
+    wf.add_argument("--gap", type=float, default=2.0, help="hours between sessions that still count as one workflow")
+    wf.add_argument("--json", action="store_true", help="export for pooling across people (no prompts, paths or file names)")
+    wf.set_defaults(fn=cmd_workflows)
     h = sub.add_parser("hook", help="Claude Code hook entry points (read the hook JSON on stdin)")
     h.add_argument("name", choices=["idle-resume"])
     h.set_defaults(fn=lambda a: hooks.main(a.name))
@@ -219,7 +250,7 @@ def main(argv: list[str] | None = None) -> None:
     u.set_defaults(fn=cmd_upkeep)
 
     argv = list(sys.argv[1:] if argv is None else argv)
-    if not argv or argv[0] not in ("report", "summary", "json", "cost", "split", "hook", "upkeep", "-h", "--help"):
+    if not argv or argv[0] not in ("report", "summary", "json", "cost", "split", "handoff", "workflows", "hook", "upkeep", "-h", "--help"):
         argv.insert(0, "report")
     args = p.parse_args(argv)
     args.fn(args)

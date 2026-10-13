@@ -106,6 +106,52 @@ Context cost grows with the square of session length, so starting fresh at a tas
 
 On the author's history ($382), splitting at idle gaps would have saved **42%**, still 35% with a 60k-token handoff. Splitting at new tasks alone saved 6%: the sessions were long, single projects with breaks, not task-hopping.
 
+## Continue in a fresh session: `cc-retro handoff`
+
+```sh
+cc-retro handoff                 # the most recently active session
+cc-retro handoff --session a1b2  # by id prefix
+cc-retro handoff --project api --print
+```
+
+Writes `~/.claude/cc-retro/handoffs/<session>.md` from the transcript, **with no model call**. Asking a session for a summary after a break re-pays its whole context, which is the cost a fresh session avoids. The note has:
+- the session title, directory and branch
+- the goal (your first prompt, with pasted blocks collapsed)
+- your recent requests and any open todos
+- the last message (where it left off)
+- commits made since the session started
+- files changed, most recent first, and files read
+- the last commands and how they ended
+
+Start a new session and send `Read <path> and continue from it`. When the idle-resume hook holds a prompt, it writes this note and shows that line.
+
+## Workflows and coordination: `cc-retro workflows`
+
+```sh
+cc-retro workflows            # grouped workflows and a comparison by coordination mode
+cc-retro workflows --json     # export for pooling across a team: no prompts, paths or file names
+```
+
+A workflow is the sessions in one repo (worktrees fold into it) whose activity overlaps or follows within `--gap` hours (2 by default). Each workflow gets a coordination mode:
+
+| Mode | Meaning |
+|---|---|
+| solo | one main session at a time, no delegation |
+| delegated | a lead session handing work to subagents (Agent/Task) |
+| human-parallel | you running several main sessions at once |
+| mixed | several concurrent main sessions, with delegation as well |
+| automated | a scheduled-task run; each is its own workflow, so routines don't count as your parallel work |
+
+Measures for each workflow:
+- **Cost,** subagents included.
+- **Wall time** and **active time:** the union of active spans, so parallel sessions don't double-count your time.
+- **Your prompts per active hour:** a proxy for how much attention it took.
+- **Peak and average concurrency.**
+- **Commits:** successful `git commit` calls in its own sessions, quiet ones included. Commits made outside these Claude sessions in the same window aren't credited.
+- **Rework signals:** a file edited in more than one session, merge conflicts, and reverts or resets.
+
+Each workflow carries a `person` (the repo's git `user.email`), so `--json` exports from several people can be combined to compare how a team coordinates.
+
 ## Hooks
 
 Install cc-retro as a tool first (see [Install](#install)); hooks call `~/.local/bin/cc-retro`, not a checkout. Add to `~/.claude/settings.json`:

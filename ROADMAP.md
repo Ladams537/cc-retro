@@ -6,11 +6,16 @@
 - Finer boundary signals: a new request right after a commit or a passing test run, or a change of working directory or file set.
 - Measuring what a fresh session really has to re-read, instead of assuming a fixed handoff.
 
-## Coming next: parallel-workflow analysis
+## Done: workflow linking (`cc-retro workflows`)
 
-**Multi-session and parallel-agent workflows.** Extend the same analysis from one session to a workflow: several sessions on one goal, subagents, and parallel worktrees, as used by individuals and teams. Link the sessions that belong together (shared repo, branch, worktree or overlapping files and time), then measure the workflow as a whole: total cost, wall time, how much work was redone, and how often a human had to correct or redirect.
+Sessions are grouped into workflows by repo and time. Each gets a coordination mode (solo, delegated, human-parallel, mixed, automated) and is measured on cost, active time, prompts per hour, concurrency, commits and rework signals. A `--json` export lets a team pool results. Not done yet:
+- Linking across repos.
+- Explicit spawn links between sessions (sessions started by another session).
+- Rework measured as lines later reverted, rather than only shared files, conflicts and undo commands.
 
-**Who coordinates.** With workflows linked, compare three ways of coordinating parallel sessions:
+## Coming next: who coordinates
+
+With workflows linked, compare three ways of coordinating parallel sessions:
 
 1. a human dispatching and merging the sessions by hand,
 2. a "PM" Claude instance, prompted ad hoc, that splits the goal, starts and monitors other sessions, and integrates their results,
