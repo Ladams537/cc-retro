@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import sys
 import time
 from datetime import datetime
@@ -92,12 +94,14 @@ def idle_resume(event: dict, now: float | None = None) -> dict | None:
     _log({"event": "hold", "ts": now, "session": sid, "transcript": path, "ctx": last["ctx"],
           "idle_h": round(idle / 3600, 2), "cost": round(cost, 4)})
     hours = idle / 3600
+    prompt = str(event.get("prompt", ""))
     try:
         from .handoff import write as write_handoff
-        note = f"- Fresh start, same task: open a new session and send `Read {write_handoff(Path(path))} and continue from it.`\n"
+        read = f"Read {write_handoff(Path(path))} and continue from it."
+        note = f"- Fresh start, same task: open a new session and send `{read}`\n"
     except Exception:  # the note is a convenience; the hold must still work without it
-        note = ""
-    prompt = str(event.get("prompt", ""))
+        read, note = "", ""
+    copied = _copy(f"{read}\n\n{prompt}" if read else prompt)
     preview = prompt if len(prompt) <= 600 else prompt[:600] + "…"
     reason = (
         f"cc-retro: held this prompt. The session's {last['ctx'] / 1000:.0f}k-token context has been idle "
@@ -105,9 +109,21 @@ def idle_resume(event: dict, now: float | None = None) -> dict | None:
         f"- Same task: send it again within {HOLD_WINDOW // 60} min to go ahead (or /compact first to shrink it).\n"
         + note +
         f"- New task: start a new session, or /clear.\n\n"
-        f"Your prompt, to copy back:\n{preview}"
+        + (f"Copied to your clipboard: {'the Read line and ' if read else ''}your prompt, ready to paste.\n\n" if copied else "")
+        + f"Your prompt, to copy back:\n{preview}"
     )
     return {"decision": "block", "reason": reason}
+
+
+def _copy(text: str) -> bool:
+    """Put text on the clipboard (pbcopy, wl-copy or xclip). False when none is available."""
+    for cmd in (["pbcopy"], ["wl-copy"], ["xclip", "-selection", "clipboard"]):
+        if shutil.which(cmd[0]):
+            try:
+                return subprocess.run(cmd, input=text.encode(), timeout=2).returncode == 0
+            except (OSError, subprocess.SubprocessError):
+                return False
+    return False
 
 
 def _log(rec: dict) -> None:

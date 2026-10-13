@@ -68,9 +68,13 @@ class Handoff(unittest.TestCase):
                          "cache_creation": {"ephemeral_1h_input_tokens": 10}}, "content": []}}
         self.f.write_text(self.f.read_text() + json.dumps(rec) + "\n")
         with mock.patch.object(hooks, "STATE", d / "h.json"), mock.patch.object(hooks, "LOG", d / "h.log"), \
-                mock.patch.object(handoff, "OUT_DIR", d / "handoffs"), mock.patch.object(handoff, "_commits", return_value=[]):
+                mock.patch.object(handoff, "OUT_DIR", d / "handoffs"), mock.patch.object(handoff, "_commits", return_value=[]), \
+                mock.patch.object(hooks, "_copy", return_value=True) as copy:
             out = hooks.idle_resume({"session_id": "s", "transcript_path": str(self.f), "prompt": "hi"}, now=T_LAST + 3 * 3600)
-        self.assertIn(f"Read {d / 'handoffs' / (self.f.stem + '.md')}", out["reason"])
+        read = f"Read {d / 'handoffs' / (self.f.stem + '.md')} and continue from it."
+        self.assertIn(read, out["reason"])
+        copy.assert_called_once_with(f"{read}\n\nhi")  # one paste: the Read line, then the held prompt
+        self.assertIn("Copied to your clipboard: the Read line and your prompt", out["reason"])
         self.assertTrue((d / "handoffs" / (self.f.stem + ".md")).exists())
 
 

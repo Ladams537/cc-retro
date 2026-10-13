@@ -26,9 +26,9 @@ class IdleResume(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
         self.ps = [mock.patch.object(hooks, "STATE", Path(self.dir) / "holds.json"),
-                   mock.patch.object(hooks, "LOG", Path(self.dir) / "holds.log.jsonl")]
-        for p in self.ps:
-            p.start()
+                   mock.patch.object(hooks, "LOG", Path(self.dir) / "holds.log.jsonl"),
+                   mock.patch.object(hooks, "_copy", return_value=False)]  # never touch the real clipboard
+        self.copy = [p.start() for p in self.ps][-1]
 
     def tearDown(self):
         for p in self.ps:
@@ -44,6 +44,8 @@ class IdleResume(unittest.TestCase):
         self.assertIn("400k-token", out["reason"])
         self.assertIn("carry on with the import page", out["reason"])
         self.assertIn("$3.12", out["reason"])  # 400,101 tokens x ($8 write - $0.20 read) / M
+        self.assertNotIn("clipboard", out["reason"])  # _copy failed: don't claim it
+        self.assertIn("carry on with the import page", self.copy.call_args[0][0])
         self.assertIsNone(hooks.idle_resume(self.ev(path), now=T0 + 3 * 3600 + 60))  # resend goes through
         self.assertEqual(hooks.idle_resume(self.ev(path), now=T0 + 6 * 3600)["decision"], "block")  # next long break
 
