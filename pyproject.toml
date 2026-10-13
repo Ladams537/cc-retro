@@ -1,0 +1,23 @@
+[project]
+name = "cc-retro"
+version = "0.1.0"
+description = "Find where your Claude Code sessions get stuck, what they cost, and what to put in CLAUDE.md."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Louis Adams", email = "100431287+Ladams537@users.noreply.github.com" }]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/Ladams537/cc-retro"
+Issues = "https://github.com/Ladams537/cc-retro/issues"
+
+[project.scripts]
+cc-retro = "cc_retro.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cc_retro"]
